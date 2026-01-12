@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Todoist Days To Go
 // @namespace    https://github.com/kohei-todoist-days-to-go
-// @version      1.0.0
-// @description  Todoistのタスク一覧に締切/期日までの残り日数「○日前」を表示
+// @version      1.1.0
+// @description  Display days remaining until due/deadline in Todoist task list
 // @author       Kohei
 // @match        https://todoist.com/*
 // @match        https://app.todoist.com/*
@@ -13,30 +13,95 @@
 (function() {
     'use strict';
 
-    // 設定
+    // ===================
+    // Language definitions
+    // ===================
+    const LANGUAGES = {
+        ja: {
+            // Badge display formats
+            today: '今日',
+            tomorrow: '明日',
+            yesterday: '昨日',
+            daysAgo: (n) => `${n}日前`,
+            daysLater: (n) => `${n}日後`,
+            daysRemaining: (n) => `あと${n}日`,
+            dMinus: (n) => `D-${n}`,
+            // Date pattern for parsing (regex)
+            datePattern: /(\d{1,2})月(\d{1,2})日/g,
+            parseDateMatch: (match) => ({ month: parseInt(match[1]), day: parseInt(match[2]) }),
+            // Date keywords for finding date containers
+            dateKeywords: /\d{1,2}月\d{1,2}日|今日|明日|昨日/,
+        },
+        en: {
+            // Badge display formats
+            today: 'Today',
+            tomorrow: 'Tomorrow',
+            yesterday: 'Yesterday',
+            daysAgo: (n) => `${n}d ago`,
+            daysLater: (n) => `in ${n}d`,
+            daysRemaining: (n) => `${n}d left`,
+            dMinus: (n) => `D-${n}`,
+            // Date pattern for parsing (regex) - matches "Jan 21", "January 21", "21 Jan", etc.
+            datePattern: /(?:(\d{1,2})\s+)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s+(\d{1,2}))?/gi,
+            parseDateMatch: (match) => {
+                const months = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+                const monthStr = match[2].toLowerCase().slice(0, 3);
+                const day = parseInt(match[1] || match[3]);
+                return { month: months[monthStr], day: day };
+            },
+            // Date keywords for finding date containers
+            dateKeywords: /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\b|\bToday\b|\bTomorrow\b|\bYesterday\b/i,
+        },
+        zh: {
+            // Badge display formats
+            today: '今天',
+            tomorrow: '明天',
+            yesterday: '昨天',
+            daysAgo: (n) => `${n}天前`,
+            daysLater: (n) => `${n}天后`,
+            daysRemaining: (n) => `还剩${n}天`,
+            dMinus: (n) => `D-${n}`,
+            // Date pattern for parsing (regex) - matches "1月21日" format
+            datePattern: /(\d{1,2})月(\d{1,2})日/g,
+            parseDateMatch: (match) => ({ month: parseInt(match[1]), day: parseInt(match[2]) }),
+            // Date keywords for finding date containers
+            dateKeywords: /\d{1,2}月\d{1,2}日|今天|明天|昨天/,
+        }
+    };
+
+    // ===================
+    // Configuration
+    // ===================
     const CONFIG = {
-        // 表示形式: 'before' = "○日前", 'after' = "あと○日", 'D-' = "D-○"
+        // Language: 'ja' (Japanese), 'en' (English), or 'zh' (Chinese)
+        language: 'ja',
+        // Display format: 'before' = "Xd ago/later", 'after' = "X days left", 'D-' = "D-X"
         format: 'before',
-        // 更新間隔（ミリ秒）
+        // Update interval (milliseconds)
         updateInterval: 1000,
-        // デバッグモード
+        // Debug mode
         debug: false
     };
 
-    // ログ関数
+    // Get current language settings
+    function getLang() {
+        return LANGUAGES[CONFIG.language] || LANGUAGES.ja;
+    }
+
+    // Logging function
     function log(...args) {
         if (CONFIG.debug) {
             console.log('[Todoist Days To Go]', ...args);
         }
     }
 
-    // 今日の日付（時刻なし）を取得
+    // Get today's date (without time)
     function getToday() {
         const now = new Date();
         return new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
 
-    // 日付文字列をパース（YYYY-MM-DD形式）
+    // Parse date string (YYYY-MM-DD format)
     function parseDate(dateStr) {
         if (!dateStr) return null;
         const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
@@ -46,7 +111,7 @@
         return null;
     }
 
-    // 日数差を計算
+    // Calculate difference in days
     function getDaysDiff(targetDate) {
         const today = getToday();
         const diffTime = targetDate.getTime() - today.getTime();
@@ -54,48 +119,50 @@
         return diffDays;
     }
 
-    // 残り日数の表示テキストを生成
+    // Generate display text for remaining days
     function formatDaysText(days) {
+        const lang = getLang();
+        
         if (days === 0) {
-            return '今日';
+            return lang.today;
         } else if (days === 1) {
-            return '明日';
+            return lang.tomorrow;
         } else if (days === -1) {
-            return '昨日';
+            return lang.yesterday;
         } else if (days < 0) {
-            // 過去の日付
-            return `${Math.abs(days)}日前`;
+            // Past date
+            return lang.daysAgo(Math.abs(days));
         } else {
-            // 未来の日付
+            // Future date
             switch (CONFIG.format) {
                 case 'before':
-                    return `${days}日後`;
+                    return lang.daysLater(days);
                 case 'after':
-                    return `あと${days}日`;
+                    return lang.daysRemaining(days);
                 case 'D-':
-                    return `D-${days}`;
+                    return lang.dMinus(days);
                 default:
-                    return `${days}日後`;
+                    return lang.daysLater(days);
             }
         }
     }
 
-    // 日数に応じた色を取得
+    // Get color based on remaining days
     function getDaysColor(days) {
         if (days < 0) {
-            return '#d1453b'; // 過去（赤）
+            return '#d1453b'; // Overdue (red)
         } else if (days === 0) {
-            return '#d1453b'; // 今日（赤）
+            return '#d1453b'; // Today (red)
         } else if (days <= 3) {
-            return '#eb8909'; // 3日以内（オレンジ）
+            return '#eb8909'; // Within 3 days (orange)
         } else if (days <= 7) {
-            return '#246fe0'; // 1週間以内（青）
+            return '#246fe0'; // Within 1 week (blue)
         } else {
-            return '#808080'; // それ以上（グレー）
+            return '#808080'; // Beyond 1 week (gray)
         }
     }
 
-    // バッジ要素を作成
+    // Create badge element
     function createBadge(days) {
         const badge = document.createElement('span');
         badge.className = 'todoist-days-badge';
@@ -113,18 +180,19 @@
         return badge;
     }
 
-    // タスク行の日付情報から期日を抽出
-    // deadline（📆）を優先し、なければdue date（📅）を使用
+    // Extract date from task row
+    // Prioritizes deadline (📆), falls back to due date (📅)
     function extractDateFromTask(taskElement) {
         const taskRow = taskElement.closest('[data-item-id]') || taskElement;
+        const lang = getLang();
         
-        // 方法1: data属性から直接取得を試みる
+        // Method 1: Try to get from data attribute
         const dateChip = taskRow.querySelector('[data-due-date]');
         if (dateChip) {
             return { date: dateChip.getAttribute('data-due-date'), type: 'due' };
         }
 
-        // 方法2: datetime属性を持つ要素を探す
+        // Method 2: Look for elements with datetime attribute
         const dateElements = taskRow.querySelectorAll('time, [datetime]');
         for (const el of dateElements) {
             const datetime = el.getAttribute('datetime');
@@ -133,24 +201,25 @@
             }
         }
 
-        // 方法3: テキストから日付をパース（日本語形式）
-        // スクショ: "📅今日 📆1月21日" のような形式
-        // deadlineアイコン（📆）の後の日付を優先
+        // Method 3: Parse date from text (language-specific format)
         const textContent = taskRow.textContent;
         
-        // deadlineの日付を探す（📆の後の日付）
-        // 複数の日付がある場合、deadline（後ろ）を優先
-        const allDateMatches = [...textContent.matchAll(/(\d{1,2})月(\d{1,2})日/g)];
+        // Find all date matches using language-specific pattern
+        const allDateMatches = [...textContent.matchAll(lang.datePattern)];
         
         if (allDateMatches.length > 0) {
-            // 最後の日付をdeadlineとみなす（スクショの形式に基づく）
+            // Use the last date as deadline (based on Todoist UI layout)
             const match = allDateMatches[allDateMatches.length - 1];
-            const month = parseInt(match[1]);
-            const day = parseInt(match[2]);
+            const parsed = lang.parseDateMatch(match);
+            
+            if (!parsed.month || !parsed.day) {
+                return null;
+            }
+            
             const year = new Date().getFullYear();
             
-            // 過去の日付で6ヶ月以上前なら来年と判断
-            const testDate = new Date(year, month - 1, day);
+            // If the date is more than 6 months in the past, assume next year
+            const testDate = new Date(year, parsed.month - 1, parsed.day);
             const today = getToday();
             let finalYear = year;
             if (testDate < today && (today - testDate) > 180 * 24 * 60 * 60 * 1000) {
@@ -158,7 +227,7 @@
             }
             
             return {
-                date: `${finalYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+                date: `${finalYear}-${String(parsed.month).padStart(2, '0')}-${String(parsed.day).padStart(2, '0')}`,
                 type: 'deadline'
             };
         }
@@ -166,15 +235,16 @@
         return null;
     }
 
-    // 日付チップ要素を探す（バッジを追加する位置）
+    // Find the date chip container (where to append the badge)
     function findDateChipContainer(taskElement) {
-        // Todoistの日付表示部分を探す
-        // 複数のセレクタを試す
+        const lang = getLang();
+        
+        // Try multiple selectors for Todoist's date display area
         const selectors = [
-            '.task_list_item__info_tags',  // タグ情報エリア
-            '.due_date_controls',           // 期日コントロール
-            '[data-testid="task-due-date"]', // テスト用属性
-            '.scheduler-chip',              // スケジューラーチップ
+            '.task_list_item__info_tags',   // Tag info area
+            '.due_date_controls',            // Due date controls
+            '[data-testid="task-due-date"]', // Test attribute
+            '.scheduler-chip',               // Scheduler chip
         ];
 
         for (const selector of selectors) {
@@ -184,10 +254,10 @@
             }
         }
 
-        // 日付テキストを含む要素を直接探す
+        // Search for elements containing date text directly
         const allSpans = taskElement.querySelectorAll('span, div');
         for (const span of allSpans) {
-            if (span.textContent.match(/\d{1,2}月\d{1,2}日|今日|明日|昨日/)) {
+            if (span.textContent.match(lang.dateKeywords)) {
                 return span.parentElement;
             }
         }
@@ -195,45 +265,45 @@
         return null;
     }
 
-    // タスク要素を処理
+    // Process a task element
     function processTask(taskElement) {
-        // 既にバッジがあれば削除（更新のため）
+        // Remove existing badge (for update)
         const existingBadge = taskElement.querySelector('.todoist-days-badge');
         if (existingBadge) {
             existingBadge.remove();
         }
 
-        // 日付を抽出
+        // Extract date
         const dateInfo = extractDateFromTask(taskElement);
         if (!dateInfo) {
-            log('日付が見つかりません:', taskElement);
+            log('Date not found:', taskElement);
             return;
         }
 
         const targetDate = parseDate(dateInfo.date);
         if (!targetDate) {
-            log('日付のパースに失敗:', dateInfo.date);
+            log('Failed to parse date:', dateInfo.date);
             return;
         }
 
-        // 日数差を計算
+        // Calculate days difference
         const days = getDaysDiff(targetDate);
-        log(`日付: ${dateInfo.date} (${dateInfo.type}), 残り日数: ${days}`);
+        log(`Date: ${dateInfo.date} (${dateInfo.type}), Days remaining: ${days}`);
 
-        // バッジを追加
+        // Add badge
         const container = findDateChipContainer(taskElement);
         if (container) {
             const badge = createBadge(days);
             container.appendChild(badge);
-            log('バッジを追加しました');
+            log('Badge added');
         } else {
-            log('バッジの追加先が見つかりません');
+            log('Badge container not found');
         }
     }
 
-    // 全タスクを処理
+    // Process all tasks
     function processAllTasks() {
-        // タスクリストアイテムを取得
+        // Get task list items
         const selectors = [
             '.task_list_item',
             '[data-item-id]',
@@ -245,7 +315,7 @@
         for (const selector of selectors) {
             const tasks = document.querySelectorAll(selector);
             tasks.forEach(task => {
-                // 重複処理を防ぐ
+                // Prevent duplicate processing
                 const taskId = task.getAttribute('data-item-id') || 
                               task.closest('[data-item-id]')?.getAttribute('data-item-id');
                 if (taskId && processedTasks.has(taskId)) {
@@ -258,13 +328,13 @@
                 try {
                     processTask(task);
                 } catch (e) {
-                    log('タスク処理エラー:', e);
+                    log('Task processing error:', e);
                 }
             });
         }
     }
 
-    // DOM変更を監視
+    // Observe DOM changes
     function setupObserver() {
         const observer = new MutationObserver((mutations) => {
             let shouldUpdate = false;
@@ -276,7 +346,7 @@
                 }
             }
             if (shouldUpdate) {
-                // 少し遅延させて確実にDOMが安定してから処理
+                // Delay slightly to ensure DOM has stabilized
                 setTimeout(processAllTasks, 100);
             }
         });
@@ -288,14 +358,14 @@
             attributeFilter: ['data-item-id', 'class']
         });
 
-        log('MutationObserver を設定しました');
+        log('MutationObserver initialized');
     }
 
-    // 初期化
+    // Initialize
     function init() {
-        log('初期化開始');
+        log('Initialization started');
 
-        // スタイルを追加
+        // Add styles
         const style = document.createElement('style');
         style.textContent = `
             .todoist-days-badge {
@@ -307,19 +377,19 @@
         `;
         document.head.appendChild(style);
 
-        // 初回処理
+        // Initial processing
         setTimeout(processAllTasks, 1000);
 
-        // DOM監視を開始
+        // Start DOM observation
         setupObserver();
 
-        // 定期的に更新（日付が変わった場合など）
+        // Periodic update (e.g., when date changes)
         setInterval(processAllTasks, CONFIG.updateInterval * 60);
 
-        log('初期化完了');
+        log('Initialization complete');
     }
 
-    // ページ読み込み完了後に実行
+    // Execute after page load
     if (document.readyState === 'complete') {
         init();
     } else {

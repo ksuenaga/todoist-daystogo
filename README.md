@@ -1,92 +1,105 @@
 # Todoist Days To Go
 
-Todoistのタスク一覧に、締切/期日までの残り日数を表示するユーザースクリプトです。
+A userscript that displays days remaining until due/deadline in the Todoist task list.
 
-![表示例](screenshot.png)
+English | [日本語](README.ja.md) | [中文](README.zh.md)
 
-## 機能
+![Screenshot](screenshot.png)
 
-- タスクの日付表示の右側に「○日前」「○日後」などを表示
-- 残り日数に応じた色分け
-  - 🔴 過去/今日: 赤色
-  - 🟠 3日以内: オレンジ色
-  - 🔵 1週間以内: 青色
-  - ⚫ それ以上: グレー
+## Features
 
-## インストール
+- Displays "Xd ago", "in Xd", etc. next to the date display in task rows
+- Color-coded based on remaining days:
+  - 🔴 Overdue/Today: Red
+  - 🟠 Within 3 days: Orange
+  - 🔵 Within 1 week: Blue
+  - ⚫ Beyond 1 week: Gray
+- **Multi-language support**: Japanese and English
 
-### 1. Tampermonkey をインストール
+## Installation
 
-Chrome ウェブストアから [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) をインストールしてください。
+### 1. Install Tampermonkey
 
-### 2. ユーザースクリプトをインストール
+Install [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) from the Chrome Web Store.
 
-以下のいずれかの方法でインストールできます：
+### 2. Install the userscript
 
-#### 方法A: 直接インストール
+Choose one of the following methods:
 
-1. [todoist-days-to-go.user.js](./todoist-days-to-go.user.js) を開く
-2. 「Raw」ボタンをクリック
-3. Tampermonkey のインストール画面が表示されるので「インストール」をクリック
+#### Method A: Direct Install
 
-#### 方法B: 手動インストール
+1. Open [todoist-days-to-go.user.js](./todoist-days-to-go.user.js)
+2. Click the "Raw" button
+3. Tampermonkey will prompt you to install - click "Install"
 
-1. Tampermonkey のダッシュボードを開く（ブラウザのツールバーアイコン → ダッシュボード）
-2. 「+」タブをクリックして新しいスクリプトを作成
-3. [todoist-days-to-go.user.js](./todoist-days-to-go.user.js) の内容をコピー&ペースト
-4. Ctrl+S (Cmd+S) で保存
+#### Method B: Manual Install
 
-## 使い方
+1. Open the Tampermonkey dashboard (toolbar icon → Dashboard)
+2. Click the "+" tab to create a new script
+3. Copy and paste the contents of [todoist-days-to-go.user.js](./todoist-days-to-go.user.js)
+4. Save with Ctrl+S (Cmd+S on Mac)
 
-インストール後、Todoistを開くと自動的に動作します。
+## Usage
 
-## カスタマイズ
+After installation, the script runs automatically when you open Todoist.
 
-スクリプト冒頭の `CONFIG` オブジェクトで設定を変更できます：
+## Configuration
+
+Edit the `CONFIG` object at the top of the script to customize:
 
 ```javascript
 const CONFIG = {
-    // 表示形式: 'before' = "○日前/○日後", 'after' = "あと○日", 'D-' = "D-○"
+    // Language: 'ja' (Japanese), 'en' (English), or 'zh' (Chinese)
+    language: 'ja',
+    // Display format: 'before', 'after', or 'D-'
     format: 'before',
-    // 更新間隔（分）
+    // Update interval (milliseconds)
     updateInterval: 1000,
-    // デバッグモード（コンソールにログを出力）
+    // Debug mode (outputs logs to console)
     debug: false
 };
 ```
 
-### 表示形式の例
+### Language Options
 
-| format | 過去 | 今日 | 未来 |
-|--------|------|------|------|
-| `'before'` | 3日前 | 今日 | 3日後 |
-| `'after'` | 3日前 | 今日 | あと3日 |
-| `'D-'` | 3日前 | 今日 | D-3 |
+| language | Example displays |
+|----------|------------------|
+| `'ja'` | 3日前, 今日, 3日後 |
+| `'en'` | 3d ago, Today, in 3d |
+| `'zh'` | 3天前, 今天, 3天后 |
 
-## トラブルシューティング
+### Display Format Options
 
-### バッジが表示されない場合
+| format | Past | Today | Future (ja) | Future (en) |
+|--------|------|-------|-------------|-------------|
+| `'before'` | 3日前 / 3d ago | 今日 / Today | 3日後 / in 3d |
+| `'after'` | 3日前 / 3d ago | 今日 / Today | あと3日 / 3d left |
+| `'D-'` | 3日前 / 3d ago | 今日 / Today | D-3 |
 
-1. Tampermonkey が有効になっているか確認
-2. todoist.com でスクリプトが有効になっているか確認（Tampermonkeyアイコン → 該当スクリプトにチェック）
-3. ページをリロード
-4. `CONFIG.debug = true` にしてコンソールログを確認
+## Troubleshooting
 
-### Todoistの更新で動作しなくなった場合
+### Badge not showing
 
-TodoistのDOM構造が変更された可能性があります。Issue を立てていただければ対応します。
+1. Verify Tampermonkey is enabled
+2. Check that the script is enabled for todoist.com (Tampermonkey icon → check the script)
+3. Reload the page
+4. Set `CONFIG.debug = true` and check console logs
 
-## 技術的な仕組み
+### Script stops working after Todoist update
 
-1. MutationObserver でDOM変更を監視
-2. タスク要素から日付情報を抽出（複数の方法でフォールバック）
-3. 今日との日数差を計算
-4. 日付表示の右側にバッジを追加
+Todoist's DOM structure may have changed. Please open an issue and I'll update the script.
 
-## ライセンス
+## How It Works
+
+1. MutationObserver monitors DOM changes
+2. Extracts date information from task elements (multiple fallback methods)
+3. Calculates days difference from today
+4. Appends a badge next to the date display
+
+## License
 
 MIT License
 
-## 貢献
+## Contributing
 
-Issue や Pull Request を歓迎します！
+Issues and Pull Requests are welcome!
