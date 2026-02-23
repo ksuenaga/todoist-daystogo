@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Todoist Days To Go
 // @namespace    https://github.com/kohei-todoist-days-to-go
-// @version      1.1.0
+// @version      1.1.1
 // @description  Display days remaining until due/deadline in Todoist task list
 // @author       Kohei
 // @match        https://todoist.com/*
@@ -115,7 +115,7 @@
     function getDaysDiff(targetDate) {
         const today = getToday();
         const diffTime = targetDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
     }
 
