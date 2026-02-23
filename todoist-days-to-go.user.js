@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Todoist Days To Go
 // @namespace    https://github.com/kohei-todoist-days-to-go
-// @version      1.1.1
+// @version      1.1.2
 // @description  Display days remaining until due/deadline in Todoist task list
 // @author       Kohei
 // @match        https://todoist.com/*
@@ -176,6 +176,9 @@
             color: ${getDaysColor(days)};
             background-color: ${getDaysColor(days)}15;
             white-space: nowrap;
+            pointer-events: none;
+            display: inline-block;
+            vertical-align: middle;
         `;
         return badge;
     }
@@ -235,30 +238,37 @@
         return null;
     }
 
-    // Find the date chip container (where to append the badge)
-    function findDateChipContainer(taskElement) {
+    // Find the date element (where to append the badge)
+    function findDateElement(taskElement) {
         const lang = getLang();
-        
-        // Try multiple selectors for Todoist's date display area
+
+        // Try to find the actual date display element (not hover-dependent containers)
         const selectors = [
-            '.task_list_item__info_tags',   // Tag info area
-            '.due_date_controls',            // Due date controls
-            '[data-testid="task-due-date"]', // Test attribute
-            '.scheduler-chip',               // Scheduler chip
+            'button[data-testid="task-due-date"]',  // Date button
+            '[data-testid="task-due-date"]',        // Date element
+            'button.date',                           // Generic date button
+            '.task_list_item__info_tags button',    // Button inside info tags
+            '.scheduler-chip button',                // Button inside scheduler chip
+            '[aria-label*="due"]',                   // Element with due in aria-label
         ];
 
+        // Try selectors first
         for (const selector of selectors) {
-            const container = taskElement.querySelector(selector);
-            if (container) {
-                return container;
+            const element = taskElement.querySelector(selector);
+            if (element) {
+                return element;
             }
         }
 
         // Search for elements containing date text directly
-        const allSpans = taskElement.querySelectorAll('span, div');
-        for (const span of allSpans) {
-            if (span.textContent.match(lang.dateKeywords)) {
-                return span.parentElement;
+        const allElements = taskElement.querySelectorAll('button, span, div');
+        for (const element of allElements) {
+            const text = element.textContent || '';
+            if (text.match(lang.dateKeywords) && !element.classList.contains('todoist-days-badge')) {
+                // Make sure it's a leaf element or has minimal children
+                if (element.children.length <= 2) {
+                    return element;
+                }
             }
         }
 
@@ -290,14 +300,15 @@
         const days = getDaysDiff(targetDate);
         log(`Date: ${dateInfo.date} (${dateInfo.type}), Days remaining: ${days}`);
 
-        // Add badge
-        const container = findDateChipContainer(taskElement);
-        if (container) {
+        // Add badge next to the date element
+        const dateElement = findDateElement(taskElement);
+        if (dateElement) {
             const badge = createBadge(days);
-            container.appendChild(badge);
+            // Insert badge after the date element
+            dateElement.insertAdjacentElement('afterend', badge);
             log('Badge added');
         } else {
-            log('Badge container not found');
+            log('Date element not found');
         }
     }
 
@@ -370,9 +381,12 @@
         style.textContent = `
             .todoist-days-badge {
                 transition: opacity 0.2s ease;
+                visibility: visible !important;
+                opacity: 1 !important;
+                position: relative !important;
             }
             .todoist-days-badge:hover {
-                opacity: 0.8;
+                opacity: 0.8 !important;
             }
         `;
         document.head.appendChild(style);
