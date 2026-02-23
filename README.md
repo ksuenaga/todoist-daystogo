@@ -9,12 +9,14 @@ English | [日本語](README.ja.md) | [中文](README.zh.md)
 ## Features
 
 - Displays "Xd ago", "in Xd", etc. next to the date display in task rows
+- **Persistent display**: Badges remain visible regardless of mouse hover state
 - Color-coded based on remaining days:
   - 🔴 Overdue/Today: Red
   - 🟠 Within 3 days: Orange
   - 🔵 Within 1 week: Blue
   - ⚫ Beyond 1 week: Gray
-- **Multi-language support**: Japanese and English
+- **Multi-language support**: Japanese, English, and Chinese
+- **Accurate calculations**: Uses proper rounding for precise day counts
 
 ## Installation
 
@@ -91,10 +93,60 @@ Todoist's DOM structure may have changed. Please open an issue and I'll update t
 
 ## How It Works
 
-1. MutationObserver monitors DOM changes
-2. Extracts date information from task elements (multiple fallback methods)
-3. Calculates days difference from today
-4. Appends a badge next to the date display
+1. MutationObserver monitors DOM changes in real-time
+2. Extracts date information from task elements using multiple fallback methods
+3. Calculates days difference from today using accurate rounding (Math.round)
+4. Inserts a persistent badge next to the date element using insertAdjacentElement
+5. Badge visibility is maintained regardless of hover state through CSS positioning
+
+## Development
+
+### Running Tests
+
+This project includes a comprehensive test suite with 100% code coverage.
+
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+### Test Coverage
+
+- **Statements**: 100% (72/72)
+- **Branches**: 93.18% (41/44)
+- **Functions**: 100% (22/22)
+- **Lines**: 100% (71/71)
+
+The test suite includes 73 comprehensive tests covering:
+- All language formats (Japanese, English, Chinese)
+- Date parsing and calculations
+- Color logic
+- Text formatting
+- Edge cases and error handling
+
+## Recent Updates
+
+### Version 1.1.2
+- Fixed badge disappearing on mouse hover
+- Improved element targeting for persistent display
+- Enhanced CSS with !important flags for visibility
+
+### Version 1.1.1
+- Fixed incorrect day calculation (changed from Math.ceil to Math.round)
+- More accurate "days to go" counting
+
+### Version 1.1.0
+- Added comprehensive test suite
+- Improved code quality and reliability
 
 ## License
 
@@ -102,4 +154,11 @@ MIT License
 
 ## Contributing
 
-Issues and Pull Requests are welcome!
+Issues and Pull Requests are welcome! Please ensure tests pass before submitting PRs.
+
+### Running Tests Before Contributing
+
+```bash
+npm install
+npm test
+```
